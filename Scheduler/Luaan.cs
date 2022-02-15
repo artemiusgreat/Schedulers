@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
+// Single threaded scheduler with Task.Factory.StartNew
+// https://stackoverflow.com/a/30726903/437393
+
 public class SingleScheduler : TaskScheduler, IDisposable
 {
   protected bool isExecuting = false;

@@ -2,6 +2,9 @@
 using System.Threading;
 using System.Threading.Tasks;
 
+// Theodor Zoulias - multi-thread scheduler with async / await
+// https://stackoverflow.com/a/57702536/437393 
+
 public class MyTaskScheduler : TaskScheduler
 {
   private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);

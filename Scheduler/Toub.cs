@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
+// Stephen Toub - Synchronization context in console apps
+// https://devblogs.microsoft.com/pfxteam/await-synchronizationcontext-and-console-apps/
+
 public class AsyncPump
 {
   SingleThreadSynchronizationContext _syncCtx = new();

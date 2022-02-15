@@ -3,6 +3,9 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 
+// Joe Albahari - Blocking Collection
+// http://www.albahari.com/threading/part5.aspx#_BlockingCollectionT
+
 public class SyncQueue : IDisposable
 {
   protected class Item<T>
