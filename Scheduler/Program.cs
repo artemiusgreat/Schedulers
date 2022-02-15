@@ -8,7 +8,6 @@ var queue = new SyncQueue(Environment.ProcessorCount);
 var pump = new AsyncPump();
 var singleScheduler = new SingleScheduler { Count = 1 }.Setup();
 var syncScheduler = new SyncScheduler { Count = 1 }.Setup();
-
 var stopWatch = new Stopwatch();
 
 stopWatch.Start();
@@ -18,7 +17,8 @@ for (var i = 0; i < 10000000; i++)
   //var response = await queue.Run(Task.FromResult<int>(o));
   //var response = pump.Run(() => Task.FromResult(o));
   //var response = await singleScheduler.Run(() => o);
-  var response = await syncScheduler.Run(Task.FromResult<int>(o));
+  var response = await syncScheduler.Run(() => o);
+  //var response = await syncScheduler.Run(Task.FromResult<int>(o));
   o++;
 }
 

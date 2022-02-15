@@ -8,7 +8,8 @@ public class SyncScheduler : TaskScheduler, IDisposable
 {
   protected class Item<T>
   {
-    public Task<T> Action { get; set; }
+    public Func<T> Action { get; set; }
+    public Task<T> Promise { get; set; }
     public TaskCompletionSource<T> Completion { get; set; }
     public CancellationTokenSource Cancellation { get; set; }
   }
@@ -25,11 +26,25 @@ public class SyncScheduler : TaskScheduler, IDisposable
     return this;
   }
 
-  public virtual Task<T> Run<T>(Task<T> action, CancellationTokenSource cancellation = null)
+  public virtual Task<T> Run<T>(Func<T> action, CancellationTokenSource cancellation = null)
   {
     var item = new Item<T>
     {
       Action = action,
+      Cancellation = cancellation,
+      Completion = new TaskCompletionSource<T>()
+    };
+
+    _items.Add(item);
+
+    return item.Completion.Task;
+  }
+
+  public virtual Task<T> Run<T>(Task<T> action, CancellationTokenSource cancellation = null)
+  {
+    var item = new Item<T>
+    {
+      Promise = action,
       Cancellation = cancellation,
       Completion = new TaskCompletionSource<T>()
     };
@@ -59,7 +74,11 @@ public class SyncScheduler : TaskScheduler, IDisposable
           continue;
         }
 
-        completion.SetResult(item.Action.GetAwaiter().GetResult());
+        switch (true)
+        {
+          case true when item.Action is not null: completion.SetResult(item.Action()); break;
+          case true when item.Promise is not null: completion.SetResult(item.Promise.GetAwaiter().GetResult()); break;
+        }
       }
       catch (OperationCanceledException)
       {

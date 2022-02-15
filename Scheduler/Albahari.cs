@@ -10,7 +10,8 @@ public class SyncQueue : IDisposable
 {
   protected class Item<T>
   {
-    public Task<T> Action { get; set; }
+    public Func<T> Action { get; set; }
+    public Task<T> Promise { get; set; }
     public TaskCompletionSource<T> Completion { get; set; }
     public CancellationTokenSource Cancellation { get; set; }
   }
@@ -33,7 +34,7 @@ public class SyncQueue : IDisposable
   {
     var item = new Item<T>
     {
-      Action = action,
+      Promise = action,
       Cancellation = cancellation,
       Completion = new TaskCompletionSource<T>()
     };
