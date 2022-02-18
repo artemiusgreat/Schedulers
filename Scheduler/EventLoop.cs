@@ -13,7 +13,7 @@ public class EventLoop
 
   class Input<T>
   {
-    public Task<T> Action;
+    public Func<T> Action;
     public TaskCompletionSource<T> Response;
   }
 
@@ -26,7 +26,7 @@ public class EventLoop
         if (_inputs.TryDequeue(out Input<dynamic> input))
         {
           Console.WriteLine($"Demo { Thread.CurrentThread.ManagedThreadId } { Thread.CurrentThread.IsBackground } { Thread.CurrentThread.Priority }");
-          input.Response.SetResult(await input.Action);
+          input.Response.SetResult(input.Action());
         }
       });
   }
@@ -34,7 +34,7 @@ public class EventLoop
   public Task<dynamic> Run<T>(Func<T> action)
   {
     var response = new TaskCompletionSource<dynamic>();
-    var process = Task.Run(() => action() as dynamic);
+    var process = () => Task.action() as dynamic;
     var input = new Input<dynamic>
     {
       Action = process,

@@ -15,36 +15,37 @@ var mainThreadId = Thread.CurrentThread.ManagedThreadId;
 
 //stopWatch.Start();
 
-await contextQueue.Run(() => demo.Execute(1), SynchronizationContext.Current);
-
 Func<string> log = () => $"{ Thread.CurrentThread.ManagedThreadId } { Thread.CurrentThread.IsBackground } { Thread.CurrentThread.Priority }";
 
 Console.WriteLine($"Context Thread #1 is { log() }");
-var ec = ExecutionContext.Capture();
-Console.WriteLine($"Context Thread #2 is { log() }");
 
-new Thread(async () =>
-{
-  Thread.CurrentThread.IsBackground = true; 
-  Console.WriteLine($"Context Thread #3 is { log() }");
-  ExecutionContext.Run(ec, inputState => Console.WriteLine($"Context Thread #4 is { log() }"), null);
-  Console.WriteLine($"Context Thread #5 is { log() }");
+await contextQueue.Run(() => demo.Execute(1), SynchronizationContext.Current);
 
-  var data = await eventLoop.Run(() =>
-  {
-    Console.WriteLine($"@@@@@ Main thread A should be { mainThreadId } but it is { log() }");
-    return demo.Execute(1);
-  });
+//var ec = ExecutionContext.Capture();
+//Console.WriteLine($"Context Thread #2 is { log() }");
 
-  var response = pump.Run(() =>
-  {
-    Console.WriteLine($"@@@@@ Main thread B should be { mainThreadId } but it is { log() }");
-    return demo.Execute(mainThreadId);
-  });
+//var data = await eventLoop.Run(() =>
+//{
+//  Console.WriteLine($"@@@@@ Main thread A should be { mainThreadId } but it is { log() }");
+//  return demo.Execute(1);
+//});
 
-}).Start();
-Thread.Sleep(5000);
-Console.WriteLine($"Context Thread #6 is { log() }");
+//new Thread(async () =>
+//{
+//  Thread.CurrentThread.IsBackground = true; 
+//  Console.WriteLine($"Context Thread #3 is { log() }");
+//  ExecutionContext.Run(ec, inputState => Console.WriteLine($"Context Thread #4 is { log() }"), null);
+//  Console.WriteLine($"Context Thread #5 is { log() }");
+
+//  var response = pump.Run(() =>
+//  {
+//    Console.WriteLine($"@@@@@ Main thread B should be { mainThreadId } but it is { log() }");
+//    return demo.Execute(mainThreadId);
+//  });
+
+//}).Start();
+//Thread.Sleep(5000);
+//Console.WriteLine($"Context Thread #6 is { log() }");
 
 //for (var i = 0; i < 1000000; i++)
 //{

@@ -30,6 +30,8 @@ public class ContextQueue
 
     ThreadPool.QueueUserWorkItem((inputs) =>    
     {
+      SynchronizationContext.SetSynchronizationContext(_syncCtx);
+
       //And subsequently passed in to create the new execution environment
       //ExecutionContext.Run(ec, inputState =>
       //{
