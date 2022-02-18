@@ -51,27 +51,27 @@ public class AsyncPump
       SynchronizationContext.SetSynchronizationContext(prevCtx);
     }
   }
+}
 
-  protected class SingleThreadSynchronizationContext : SynchronizationContext
+public class SingleThreadSynchronizationContext : SynchronizationContext
+{
+  protected BlockingCollection<KeyValuePair<SendOrPostCallback, object>> _queue = new();
+
+  public override void Post(SendOrPostCallback d, object state)
   {
-    protected BlockingCollection<KeyValuePair<SendOrPostCallback, object>> _queue = new();
+    _queue.Add(new KeyValuePair<SendOrPostCallback, object>(d, state));
+  }
 
-    public override void Post(SendOrPostCallback d, object state)
+  public void Run()
+  {
+    foreach (var workItem in _queue.GetConsumingEnumerable())
     {
-      _queue.Add(new KeyValuePair<SendOrPostCallback, object>(d, state));
+      workItem.Key(workItem.Value);
     }
+  }
 
-    public void Run()
-    {
-      foreach (var workItem in _queue.GetConsumingEnumerable())
-      {
-        workItem.Key(workItem.Value);
-      }
-    }
-
-    public void Complete()
-    {
-      _queue.CompleteAdding();
-    }
+  public void Complete()
+  {
+    _queue.CompleteAdding();
   }
 }
