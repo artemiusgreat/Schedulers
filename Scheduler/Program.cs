@@ -9,6 +9,7 @@ var pump = new AsyncPump();
 //var singleScheduler = new SingleScheduler { Count = 1 }.Setup();
 //var syncScheduler = new SyncScheduler { Count = 1 }.Setup();
 var contextQueue = new ContextQueue();
+var eventLoop = new EventLoop();
 var mainThreadId = Thread.CurrentThread.ManagedThreadId;
 //var stopWatch = new Stopwatch();
 
@@ -22,17 +23,23 @@ Console.WriteLine($"Context Thread #1 is { log() }");
 var ec = ExecutionContext.Capture();
 Console.WriteLine($"Context Thread #2 is { log() }");
 
-new Thread(() =>
+new Thread(async () =>
 {
   Thread.CurrentThread.IsBackground = true; 
   Console.WriteLine($"Context Thread #3 is { log() }");
   ExecutionContext.Run(ec, inputState => Console.WriteLine($"Context Thread #4 is { log() }"), null);
   Console.WriteLine($"Context Thread #5 is { log() }");
 
+  var data = await eventLoop.Run(() =>
+  {
+    Console.WriteLine($"@@@@@ Main thread A should be { mainThreadId } but it is { log() }");
+    return demo.Execute(1);
+  });
+
   var response = pump.Run(() =>
   {
-    Console.WriteLine($"@@@@@ Main thread should be { mainThreadId } but it is { log() }");
-    return Task.FromResult(demo.Execute(mainThreadId));
+    Console.WriteLine($"@@@@@ Main thread B should be { mainThreadId } but it is { log() }");
+    return demo.Execute(mainThreadId);
   });
 
 }).Start();
