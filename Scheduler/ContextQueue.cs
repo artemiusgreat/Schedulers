@@ -28,7 +28,7 @@ public class ContextQueue
     //the current thread’s execution environment is copied
     //var ec = ExecutionContext.Capture();
 
-    ThreadPool.QueueUserWorkItem((inputs) =>    
+    var process = new Thread((inputs) =>    
     {
       SynchronizationContext.SetSynchronizationContext(_syncCtx);
 

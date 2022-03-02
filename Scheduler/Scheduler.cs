@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 public class SyncScheduler : TaskScheduler, IDisposable
@@ -14,7 +16,7 @@ public class SyncScheduler : TaskScheduler, IDisposable
     public CancellationTokenSource Cancellation { get; set; }
   }
 
-  protected BlockingCollection<dynamic> _items = new();
+  protected Channel<dynamic> _channel = Channel.CreateUnbounded<dynamic>();
 
   public int Count { get; set; } = 1;
   public CancellationTokenSource Cancellation { get; set; } = new();
@@ -35,7 +37,7 @@ public class SyncScheduler : TaskScheduler, IDisposable
       Completion = new TaskCompletionSource<T>()
     };
 
-    _items.Add(item);
+    _channel.Writer.WriteAsync(item);
 
     return item.Completion.Task;
   }
@@ -49,19 +51,20 @@ public class SyncScheduler : TaskScheduler, IDisposable
       Completion = new TaskCompletionSource<T>()
     };
 
-    _items.Add(item);
+    _channel.Writer.WriteAsync(item);
 
     return item.Completion.Task;
   }
 
-  public void Dispose()
+  public virtual void Dispose()
   {
-    _items.CompleteAdding();
+    _channel.Reader.Completion.Dispose();
+    _channel.Writer.Complete();
   }
 
-  protected virtual void Consume()
+  protected virtual async void Consume()
   {
-    foreach (dynamic item in _items.GetConsumingEnumerable())
+    await foreach (dynamic item in _channel.Reader.ReadAllAsync())
     {
       var completion = item?.Completion;
       var cancellation = item?.Cancellation?.Token ?? CancellationToken.None;
@@ -91,9 +94,19 @@ public class SyncScheduler : TaskScheduler, IDisposable
     }
   }
 
-  protected override void QueueTask(Task action) {}
+  protected override void QueueTask(Task action)
+  {
+    Run<dynamic>(() =>
+    {
+      action.GetAwaiter().GetResult();
+      return 5;
+    });
+  }
 
-  protected override IEnumerable<Task> GetScheduledTasks() => null;
+  protected override IEnumerable<Task> GetScheduledTasks()
+  {
+      //return _channel.Reader.ReadAllAsync().ToListAsync().Result;
+  }
 
   protected override bool TryExecuteTaskInline(Task item, bool isDone) => false;
 }
