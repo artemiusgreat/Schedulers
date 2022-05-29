@@ -28,7 +28,7 @@ namespace Demo
 
         var o = action();
 
-        o.ContinueWith(delegate { _syncCtx.Complete(); }, TaskScheduler.Default);
+        o.ContinueWith(o => _syncCtx.Complete(), TaskScheduler.Default);
 
         _syncCtx.Run();
 

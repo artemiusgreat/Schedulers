@@ -10,7 +10,7 @@ namespace Demo
   // Joe Albahari and Dedicated Process - http://www.albahari.com/threading/part5.aspx#_BlockingCollectionT
   /// </summary>
 
-  public class BackgroundProcessor : IDisposable
+  public class BackgroundProcessorAsync : IDisposable
   {
     public class Item<T>
     {
@@ -19,9 +19,9 @@ namespace Demo
       public CancellationTokenSource Cancellation { get; set; }
     }
 
-    protected BlockingCollection<Item<dynamic>> _queue = new();
+    protected Channel<Item<dynamic>> _channel = Channel.CreateUnbounded<Item<dynamic>>();
 
-    public BackgroundProcessor(int count = 1, TaskScheduler scheduler = null, CancellationTokenSource source = null)
+    public BackgroundProcessorAsync(int count = 1, TaskScheduler scheduler = null, CancellationTokenSource source = null)
     {
       var sc = scheduler ?? TaskScheduler.Default;
       var cancellation = source?.Token ?? CancellationToken.None;
@@ -34,17 +34,17 @@ namespace Demo
 
     public virtual void Dispose()
     {
-      //if (_channel.Writer.TryComplete())
-      //{
-      //  _channel.Reader.Completion.Dispose();
-      //}
+      if (_channel.Writer.TryComplete())
+      {
+        _channel.Reader.Completion.Dispose();
+      }
     }
 
     public virtual Task<dynamic> Run(Func<dynamic> action, CancellationTokenSource cancellation = null)
     {
       var item = Create(action, cancellation);
 
-      _queue.Add(item);
+      _channel.Writer.WriteAsync(item);
 
       return item.Completion.Task;
     }
@@ -61,9 +61,9 @@ namespace Demo
       return item;
     }
 
-    protected virtual void Consume()
+    protected virtual async void Consume()
     {
-      foreach (var item in _queue.GetConsumingEnumerable())
+      await foreach (var item in _channel.Reader.ReadAllAsync())
       {
         var completion = item?.Completion;
         var cancellation = item?.Cancellation?.Token ?? CancellationToken.None;
