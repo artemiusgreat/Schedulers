@@ -23,14 +23,12 @@ namespace Demo
 
       var ec = ExecutionContext.Capture();
       var response = new TaskCompletionSource<T>();
-      var process = new Thread(inputs =>
-      {
+
       // And subsequently passed in to create the new execution environment
       // Execution environment for executing code 
       // is set by the passed in ExecutionContext instance
 
       ExecutionContext.Run(ec, inputState => response.SetResult(action()), null);
-      });
 
       return response.Task;
     }
@@ -45,13 +43,9 @@ namespace Demo
     public Task<T> RunSc<T>(Func<T> action, SynchronizationContext syncCtx = null)
     {
       var response = new TaskCompletionSource<T>();
-      var storage = new Dictionary<string, string>();
       var prevCtx = SynchronizationContext.Current;
 
-      var process = new Thread((inputs) =>
-      {
-        syncCtx.Post(o => response.SetResult(action()), null);
-      });
+      syncCtx.Post(o => response.SetResult(action()), null);
 
       return response.Task;
     }

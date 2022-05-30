@@ -9,25 +9,21 @@ namespace Demo
   /// <summary>
   /// Stephen Toub - Synchronization Context - https://devblogs.microsoft.com/pfxteam/await-synchronizationcontext-and-console-apps/
   /// </summary>
-  public class AsyncPump
+  public class AsyncPumpContext
   {
-    public static T Run<T>(Func<Task<T>> action)
+    public SingleThreadSynchronizationContext _syncCtx = new();
+
+    public Task<T> Run<T>(Func<T> action)
     {
       var prevCtx = SynchronizationContext.Current;
 
       try
       {
-        var syncCtx = new SingleThreadSynchronizationContext();
-
-        SynchronizationContext.SetSynchronizationContext(syncCtx);
-
-        var o = action();
-
-        o.ContinueWith(o => syncCtx.Complete(), TaskScheduler.Default);
-
-        syncCtx.Run();
-
-        return o.GetAwaiter().GetResult();
+        SynchronizationContext.SetSynchronizationContext(_syncCtx);
+        var response = new TaskCompletionSource<T>();
+        _syncCtx.Post(o => response.SetResult(action()), null);
+        _syncCtx.Run();
+        return response.Task;
       }
       finally
       {
@@ -37,24 +33,17 @@ namespace Demo
 
     public class SingleThreadSynchronizationContext : SynchronizationContext
     {
-      private readonly BlockingCollection<KeyValuePair<SendOrPostCallback, object>> _queue = new();
-
-      public override void Post(SendOrPostCallback e, object state)
-      {
-        _queue.Add(new KeyValuePair<SendOrPostCallback, object>(e, state));
-      }
-
+      private readonly BlockingCollection<KeyValuePair<SendOrPostCallback, object>> _queue = new(new ConcurrentQueue<KeyValuePair<SendOrPostCallback, object>>());
+      public override void Post(SendOrPostCallback e, object state) => _queue.Add(new KeyValuePair<SendOrPostCallback, object>(e, state));
       public override void Send(SendOrPostCallback e, object state) => throw new NotSupportedException("No sync");
 
       public void Run()
       {
-        foreach (var item in _queue.GetConsumingEnumerable())
+        if (_queue.TryTake(out KeyValuePair<SendOrPostCallback, object> item))
         {
           item.Key(item.Value);
         }
       }
-
-      public void Complete() => _queue.CompleteAdding();
     }
   }
 }
