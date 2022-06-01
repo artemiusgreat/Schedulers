@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Demo
@@ -10,46 +9,45 @@ namespace Demo
   // Joe Albahari and Dedicated Process - http://www.albahari.com/threading/part5.aspx#_BlockingCollectionT
   /// </summary>
 
-  public class BackgroundProcessor : IDisposable
+  public class BackgroundProcessor
   {
+    /// <summary>
+    /// Awaitable action wrapper
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public class Item<T>
     {
       public Delegate Action { get; set; }
+      public Task<T> Promise { get; set; }
       public TaskCompletionSource<T> Completion { get; set; }
       public CancellationTokenSource Cancellation { get; set; }
     }
 
-    protected BlockingCollection<Item<dynamic>> _queue = new();
+    /// <summary>
+    /// Queue
+    /// </summary>
+    protected BlockingCollection<Item<dynamic>> _queue = new(new ConcurrentQueue<Item<dynamic>>());
 
-    public BackgroundProcessor(int count = 1, TaskScheduler scheduler = null, CancellationTokenSource source = null)
+    /// <summary>
+    /// Constructor
+    /// </summary>
+    /// <param name="scheduler"></param>
+    /// <param name="source"></param>
+    public BackgroundProcessor(TaskScheduler scheduler = null, CancellationTokenSource source = null)
     {
       var sc = scheduler ?? TaskScheduler.Default;
       var cancellation = source?.Token ?? CancellationToken.None;
 
-      for (var i = 0; i < count; i++)
-      {
-        Task.Factory.StartNew(Consume, cancellation, TaskCreationOptions.LongRunning, sc);
-      }
+      Task.Factory.StartNew(Consume, cancellation, TaskCreationOptions.LongRunning, sc);
     }
 
-    public virtual void Dispose()
-    {
-      //if (_channel.Writer.TryComplete())
-      //{
-      //  _channel.Reader.Completion.Dispose();
-      //}
-    }
-
+    /// <summary>
+    /// Action processor
+    /// </summary>
+    /// <param name="action"></param>
+    /// <param name="cancellation"></param>
+    /// <returns></returns>
     public virtual Task<dynamic> Run(Func<dynamic> action, CancellationTokenSource cancellation = null)
-    {
-      var item = Create(action, cancellation);
-
-      _queue.Add(item);
-
-      return item.Completion.Task;
-    }
-
-    public virtual Item<dynamic> Create(Func<dynamic> action, CancellationTokenSource cancellation = null)
     {
       var item = new Item<dynamic>
       {
@@ -58,9 +56,34 @@ namespace Demo
         Completion = new TaskCompletionSource<dynamic>()
       };
 
-      return item;
+      _queue.Add(item);
+
+      return item.Completion.Task;
     }
 
+    /// <summary>
+    /// Promise processor
+    /// </summary>
+    /// <param name="action"></param>
+    /// <param name="cancellation"></param>
+    /// <returns></returns>
+    public virtual Task<dynamic> Run(Func<Task<dynamic>> action, CancellationTokenSource cancellation = null)
+    {
+      var item = new Item<dynamic>
+      {
+        Promise = action(),
+        Cancellation = cancellation,
+        Completion = new TaskCompletionSource<dynamic>()
+      };
+
+      _queue.Add(item);
+
+      return item.Completion.Task;
+    }
+
+    /// <summary>
+    /// Background process
+    /// </summary>
     protected virtual void Consume()
     {
       foreach (var item in _queue.GetConsumingEnumerable())
@@ -76,7 +99,11 @@ namespace Demo
             continue;
           }
 
-          completion.SetResult(item.Action.DynamicInvoke());
+          switch (true)
+          {
+            case true when item.Action is not null: completion.SetResult(item.Action.DynamicInvoke()); break;
+            case true when item.Promise is not null: completion.SetResult(item.Promise.GetAwaiter().GetResult()); break;
+          }
         }
         catch (OperationCanceledException)
         {

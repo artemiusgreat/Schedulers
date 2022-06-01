@@ -7,25 +7,28 @@ namespace Demo
 {
   class Program
   {
-    public static async Task Main(string[] args)
+    public static void Main(string[] args)
     {
-      Log("A1");
-      var queue = new BackgroundProcessor(1);
+      Log("A");
+      var sc = new CurrentThreadTaskScheduler();
+      var queue = new BackgroundProcessor();
       var pump = new AsyncPumpContext();
 
-      Log("A2");
-      var id1 = queue.Run(() => Log("B")).Result;
+      Log("B");
+      queue.Run(() => Log("B1"));
+      queue.Run(() => Task.FromResult(Log("B2")));
+      pump.Run(() => Log("B3"));
+      AsyncPump.Run(() => Task.FromResult(Log("B4")));
 
-      Log("A3");
-      await pump.Run(() => Log("O1"));
-
-      Parallel.For(0, 100, async o =>
+      Log("C");
+      Parallel.For(0, 10, o =>
       {
-        await pump.Run(() => Log("O1"));
-        //AsyncPump.Run(() => Task.FromResult(Log("O1")));
+        //queue.Run(() => Log("C1"));
+        //pump.Run(() => Log("C2"));
+        //AsyncPump.Run(() => Task.FromResult(Log("C3")));
       });
 
-      Log("A4");
+      Log("D");
       Console.ReadKey();
     }
 
