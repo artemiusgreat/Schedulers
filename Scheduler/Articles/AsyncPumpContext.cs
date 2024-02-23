@@ -20,8 +20,28 @@ namespace Demo
       try
       {
         SynchronizationContext.SetSynchronizationContext(_syncCtx);
+        //var response = new TaskCompletionSource<T>();
+        //_syncCtx.Post(o => response.SetResult(action()), null);
+        //_syncCtx.Run();
+        //return response.Task;
+
+        return _syncCtx.Send(() => action()).Task;
+      }
+      finally
+      {
+        SynchronizationContext.SetSynchronizationContext(prevCtx);
+      }
+    }
+
+    public Task<T> Run<T>(Func<Task<T>> action)
+    {
+      var prevCtx = SynchronizationContext.Current;
+
+      try
+      {
+        SynchronizationContext.SetSynchronizationContext(_syncCtx);
         var response = new TaskCompletionSource<T>();
-        _syncCtx.Post(o => response.SetResult(action()), null);
+        _syncCtx.Post(o => response.SetResult(action().GetAwaiter().GetResult()), null);
         _syncCtx.Run();
         return response.Task;
       }
@@ -35,7 +55,7 @@ namespace Demo
     {
       private readonly BlockingCollection<KeyValuePair<SendOrPostCallback, object>> _queue = new(new ConcurrentQueue<KeyValuePair<SendOrPostCallback, object>>());
       public override void Post(SendOrPostCallback e, object state) => _queue.Add(new KeyValuePair<SendOrPostCallback, object>(e, state));
-      public override void Send(SendOrPostCallback e, object state) => throw new NotSupportedException("No sync");
+      public override void Send(SendOrPostCallback e, object state) => _queue.Add(new KeyValuePair<SendOrPostCallback, object>(e, state));
 
       public void Run()
       {
@@ -43,6 +63,16 @@ namespace Demo
         {
           item.Key(item.Value);
         }
+      }
+
+      public TaskCompletionSource<T> Send<T>(Func<T> action)
+      {
+        var completion = new TaskCompletionSource<T>();
+
+        Post(o => completion.SetResult(action()), null);
+        Task.Run(() => Run());
+
+        return completion;
       }
     }
   }

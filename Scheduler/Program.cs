@@ -14,16 +14,33 @@ namespace Demo
       var queue = new BackgroundProcessor();
       var pump = new AsyncPumpContext();
 
+      SynchronizationContext.SetSynchronizationContext(pump._syncCtx);
+
       Log("B");
       queue.Run(() => Log("B1"));
       queue.Run(() => Task.FromResult(Log("B2")));
-      pump.Run(() => Log("B3"));
-      AsyncPump.Run(() => Task.FromResult(Log("B4")));
+      pump.Run(() => Task.Run(() => Log("B3")));
+      AsyncPump.Run(() => Task.Run(() => Log("B4")));
+
+      var scheduler = new ConcurrentExclusiveSchedulerPair();
+
+      Task.Factory.StartNew(() => Log("E"), 
+        CancellationToken.None, 
+        TaskCreationOptions.DenyChildAttach, 
+        scheduler.ExclusiveScheduler);
 
       Log("C");
-      Parallel.For(0, 10, o =>
+      Parallel.For(0, 5, o =>
       {
-        //queue.Run(() => Log("C1"));
+        pump.Run(() => Run("B3"));
+        AsyncPump.Run(() => Run("B4"));
+
+        Task.Factory.StartNew(() => Log("E"),
+          CancellationToken.None,
+          TaskCreationOptions.DenyChildAttach,
+          scheduler.ExclusiveScheduler);
+
+        queue.Run(() => Task.Run(() => Log("C1")));
         //pump.Run(() => Log("C2"));
         //AsyncPump.Run(() => Task.FromResult(Log("C3")));
       });
@@ -32,9 +49,18 @@ namespace Demo
       Console.ReadKey();
     }
 
+    public static Task<int> Run(string name)
+    {
+      return Task.Factory.StartNew(
+        () => Log(name),
+        CancellationToken.None,
+        TaskCreationOptions.None,
+        TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
     public static int Log(string txt)
     {
-      var message = $"{txt} - { Thread.CurrentThread.ManagedThreadId } { Thread.CurrentThread.IsBackground } { Thread.CurrentThread.Priority }";
+      var message = $"{txt} - {Thread.CurrentThread.ManagedThreadId} {Thread.CurrentThread.IsBackground} {Thread.CurrentThread.Priority}";
       Console.WriteLine(message);
       return Thread.CurrentThread.ManagedThreadId;
     }
